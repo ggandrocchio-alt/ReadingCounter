@@ -1,6 +1,9 @@
 name: Build APK
 on: [push, pull_request]
 permissions: { contents: write }
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -8,14 +11,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.8' }
-      - run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \"platform-tools\" \"platforms;android-35\" \"build-tools;35.0.0\""
       - run: gradle assembleDebug
       - uses: actions/upload-artifact@v4
-        with: { name: reading-counter-debug-apk, path: app/build/outputs/apk/debug/app-debug.apk }
+        with:
+          name: reading-counter-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
       - name: Release on main
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
-        with: { tag_name: build-${{ github.run_number }}, files: app/build/outputs/apk/debug/app-debug.apk, generate_release_notes: true }
+        with:
+          tag_name: build-${{ github.run_number }}
+          files: app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
