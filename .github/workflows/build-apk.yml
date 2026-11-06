@@ -14,8 +14,13 @@ jobs:
       - run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - run: gradle assembleDebug
       - uses: actions/upload-artifact@v4
-        with: { name: reading-counter-debug-apk, path: app/build/outputs/apk/debug/app-debug.apk }
+        with:
+          name: reading-counter-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
       - name: Release on main
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
-        with: { tag_name: build-${{ github.run_number }}, files: app/build/outputs/apk/debug/app-debug.apk, generate_release_notes: true }
+        with:
+          tag_name: build-${{ github.run_number }}
+          files: app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
