@@ -8,6 +8,10 @@ class ReadingCounterService : Service() {
         private const val CHANNEL="reading_counter"; private const val PREFS="reading_counter_poc"
         fun count(context: Context): Int = context.getSharedPreferences(PREFS, MODE_PRIVATE).getInt("count", 0)
         fun active(context: Context): Boolean = context.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("active", false)
+        fun lastEvent(context: Context): String = context.getSharedPreferences(PREFS, MODE_PRIVATE).getString("last_event", "Nessun evento volume ricevuto") ?: ""
+        fun recordActivityKey(context: Context, keyCode: Int) {
+            context.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString("last_event", "Activity onKeyDown: $keyCode").commit()
+        }
     }
     private var session: MediaSession? = null
     override fun onCreate() { super.onCreate(); getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Reading Counter",NotificationManager.IMPORTANCE_LOW)) }
@@ -21,15 +25,24 @@ class ReadingCounterService : Service() {
             Log.i("ReadingCounter", "count=$updated delta=$delta")
         } else Log.e("ReadingCounter", "Unable to save count")
     }
+    private fun recordEvent(value: String) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString("last_event", value).commit()
+        Log.i("ReadingCounter", value)
+    }
     private fun startCounter() {
         if (session != null) return
+        recordEvent("Counter Mode avviato; in attesa dei tasti")
         startForeground(1,notification())
         session=MediaSession(this,"ReadingCounter").apply {
             setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
             setPlaybackState(PlaybackState.Builder().setState(PlaybackState.STATE_PLAYING, 0L, 1f).setActions(PlaybackState.ACTION_PLAY_PAUSE).build())
             setPlaybackToRemote(object: VolumeProvider(VOLUME_CONTROL_RELATIVE,100,50) {
                 override fun onAdjustVolume(direction:Int) {
+                    recordEvent("MediaSession onAdjustVolume: $direction")
                     if (direction > 0) changeCount(-1) else if (direction < 0) changeCount(1)
+                }
+                override fun onSetVolumeTo(volume: Int) {
+                    recordEvent("MediaSession onSetVolumeTo: $volume (nessun conteggio)")
                 }
             })
             isActive=true
