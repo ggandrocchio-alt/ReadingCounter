@@ -4,7 +4,7 @@ import android.app.*; import android.content.Context; import android.content.Int
 
 class ReadingCounterService : Service() {
     companion object {
-        const val ACTION_START="START"; const val ACTION_STOP="STOP"; const val ACTION_INCREMENT="INC"; const val ACTION_DECREMENT="DEC"
+        const val ACTION_START="START"; const val ACTION_STOP="STOP"; const val ACTION_INCREMENT="INC"; const val ACTION_DECREMENT="DEC"; const val ACTION_RESET="RESET"
         private const val CHANNEL="reading_counter"; private const val PREFS="reading_counter_poc"
         fun count(context: Context): Int = context.getSharedPreferences(PREFS, MODE_PRIVATE).getInt("count", 0)
         fun active(context: Context): Boolean = context.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("active", false)
@@ -15,9 +15,15 @@ class ReadingCounterService : Service() {
     }
     private var session: MediaSession? = null
     override fun onCreate() { super.onCreate(); getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Reading Counter",NotificationManager.IMPORTANCE_LOW)) }
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int { when(intent?.action) { ACTION_START -> startCounter(); ACTION_STOP -> stopCounter(); ACTION_INCREMENT -> changeCount(1); ACTION_DECREMENT -> changeCount(-1) }; return START_NOT_STICKY }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int { when(intent?.action) { ACTION_START -> startCounter(); ACTION_STOP -> stopCounter(); ACTION_INCREMENT -> changeCount(1); ACTION_DECREMENT -> changeCount(-1); ACTION_RESET -> resetCount() }; return START_NOT_STICKY }
     private fun actionIntent(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(this, requestCode, Intent(this, ReadingCounterService::class.java).setAction(action), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    private fun notification(): Notification = Notification.Builder(this,CHANNEL).setContentTitle("Reading Counter").setContentText("Pagine: ${count(this)}").setSmallIcon(android.R.drawable.ic_media_play).setOngoing(true)
+    private fun notification(): Notification = Notification.Builder(this,CHANNEL).setContentTitle("Reading Counter").setContentText("Pagine: ${count(this)}").setSmallIcon(R.drawable.ic_reading_counter).setOngoing(true)
+        .setStyle(Notification.MediaStyle().setMediaSession(session?.sessionToken).setShowActionsInCompactView(0, 1))
+        .setVisibility(Notification.VISIBILITY_PUBLIC)
+        .setCategory(Notification.CATEGORY_PROGRESS)
+        .setPriority(Notification.PRIORITY_MAX)
+        .setShowWhen(false)
+        .setColor(0xFF6750A4.toInt())
         .addAction(Notification.Action.Builder(null, "−1", actionIntent(ACTION_DECREMENT, 2)).build())
         .addAction(Notification.Action.Builder(null, "+1", actionIntent(ACTION_INCREMENT, 3)).build()).build()
     private fun changeCount(delta: Int) {
@@ -27,6 +33,10 @@ class ReadingCounterService : Service() {
             if (active(this)) getSystemService(NotificationManager::class.java).notify(1, notification())
             Log.i("ReadingCounter", "count=$updated delta=$delta")
         } else Log.e("ReadingCounter", "Unable to save count")
+    }
+    private fun resetCount() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putInt("count", 0).commit()
+        if (active(this)) getSystemService(NotificationManager::class.java).notify(1, notification())
     }
     private fun recordEvent(value: String) {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString("last_event", value).commit()
