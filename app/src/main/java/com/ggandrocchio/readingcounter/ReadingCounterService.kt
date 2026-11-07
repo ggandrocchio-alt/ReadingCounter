@@ -16,7 +16,10 @@ class ReadingCounterService : Service() {
     private var session: MediaSession? = null
     override fun onCreate() { super.onCreate(); getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Reading Counter",NotificationManager.IMPORTANCE_LOW)) }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int { when(intent?.action) { ACTION_START -> startCounter(); ACTION_STOP -> stopCounter(); ACTION_INCREMENT -> changeCount(1); ACTION_DECREMENT -> changeCount(-1) }; return START_NOT_STICKY }
-    private fun notification(): Notification = Notification.Builder(this,CHANNEL).setContentTitle("Reading Counter").setContentText("Pagine: ${count(this)}").setSmallIcon(android.R.drawable.ic_media_play).setOngoing(true).build()
+    private fun actionIntent(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(this, requestCode, Intent(this, ReadingCounterService::class.java).setAction(action), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    private fun notification(): Notification = Notification.Builder(this,CHANNEL).setContentTitle("Reading Counter").setContentText("Pagine: ${count(this)}").setSmallIcon(android.R.drawable.ic_media_play).setOngoing(true)
+        .addAction(Notification.Action.Builder(null, "−1", actionIntent(ACTION_DECREMENT, 2)).build())
+        .addAction(Notification.Action.Builder(null, "+1", actionIntent(ACTION_INCREMENT, 3)).build()).build()
     private fun changeCount(delta: Int) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val updated = (prefs.getInt("count", 0).toLong() + delta).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
@@ -48,8 +51,9 @@ class ReadingCounterService : Service() {
             isActive=true
         }
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("active", true).commit()
+        if (android.provider.Settings.canDrawOverlays(this)) startService(Intent(this, ReadingCounterOverlayService::class.java))
     }
-    private fun stopCounter() { session?.run { isActive=false; release() }; session=null; getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("active", false).commit(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+    private fun stopCounter() { session?.run { isActive=false; release() }; session=null; getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("active", false).commit(); stopService(Intent(this, ReadingCounterOverlayService::class.java)); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     override fun onDestroy() { session?.run { isActive=false; release() }; session=null; getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("active", false).commit(); super.onDestroy() }
     override fun onBind(intent: Intent?): IBinder? = null
 }

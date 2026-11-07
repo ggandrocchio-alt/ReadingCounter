@@ -5,6 +5,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.KeyEvent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
@@ -57,6 +58,12 @@ class MainActivity : ComponentActivity() {
                 if (!active && !notificationsAllowed) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 sendAction(if (active) ReadingCounterService.ACTION_STOP else ReadingCounterService.ACTION_START)
             }) { Text(if (active) "Disattiva Counter Mode" else "Attiva Counter Mode") }
+            if (active && !Settings.canDrawOverlays(this@MainActivity)) {
+                Button(onClick = { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))) }) {
+                    Text("Concedi permesso pulsante flottante +1")
+                }
+                Text("Dopo aver concesso il permesso, torna qui e disattiva/riattiva Counter Mode.")
+            }
             Text("In PoC: Volume DOWN incrementa e Volume UP decrementa quando il servizio è attivo. Verificare su dispositivo reale con Kindle e Google Play Libri.", style = MaterialTheme.typography.bodyMedium)
         } } }
     }
