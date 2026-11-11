@@ -11,6 +11,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
@@ -40,10 +42,13 @@ class MainActivity : ComponentActivity() {
     @Composable private fun ReadingCounterApp() {
         var active by remember { mutableStateOf(ReadingCounterService.active(this)) }
         var count by remember { mutableIntStateOf(ReadingCounterService.count(this)) }
+        var history by remember { mutableStateOf(ReadingCounterService.history(this)) }
+        var showingHistory by remember { mutableStateOf(false) }
         var diagnostic by remember { mutableStateOf(ReadingCounterService.lastEvent(this)) }
         var notificationsAllowed by remember { mutableStateOf(Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) }
         LaunchedEffect(Unit) { while (true) {
             count = ReadingCounterService.count(this@MainActivity)
+            history = ReadingCounterService.history(this@MainActivity)
             active = ReadingCounterService.active(this@MainActivity)
             diagnostic = ReadingCounterService.lastEvent(this@MainActivity)
             notificationsAllowed = Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -53,6 +58,29 @@ class MainActivity : ComponentActivity() {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Reading Counter", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
             Text("La tua lettura, un passo alla volta", style = MaterialTheme.typography.bodyLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!showingHistory) Button(onClick = { showingHistory = false }) { Text("Oggi") }
+                else OutlinedButton(onClick = { showingHistory = false }) { Text("Oggi") }
+                if (showingHistory) Button(onClick = { showingHistory = true }) { Text("Storico") }
+                else OutlinedButton(onClick = { showingHistory = true }) { Text("Storico") }
+            }
+            if (showingHistory) {
+                Text("Contatori giornalieri", style = MaterialTheme.typography.titleLarge)
+                if (history.isEmpty()) {
+                    Text("Non ci sono ancora giorni precedenti.", style = MaterialTheme.typography.bodyLarge)
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        items(history) { day ->
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(ReadingCounterService.formatDate(day.date), style = MaterialTheme.typography.bodyLarge)
+                                    Text("${day.count} pagine", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
             Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE7F6))) { Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("PAGINE LETTE", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Text("$count", style = MaterialTheme.typography.displayLarge, color = MaterialTheme.colorScheme.primary)
@@ -72,6 +100,7 @@ class MainActivity : ComponentActivity() {
                 Text("Se Android blocca il permesso: Impostazioni → App → Reading Counter → ⋮ → Consenti impostazioni con restrizioni. Poi torna in Accesso speciale app → Mostra sopra altre app e abilita Reading Counter. Infine riattiva Counter Mode.")
             }
             Text("Con Counter Mode in primo piano: Volume giù +1, Volume su −1. In lettura usa il pulsante flottante o le azioni nella notifica.", style = MaterialTheme.typography.bodyMedium)
+            }
         } } }
     }
     private fun sendAction(action: String) {
