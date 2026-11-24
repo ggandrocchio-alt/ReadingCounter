@@ -2,32 +2,40 @@ package com.ggandrocchio.readingcounter
 
 import android.app.Service
 import android.content.Intent
-import android.graphics.PixelFormat
+import android.content.SharedPreferences
 import android.graphics.Color
+import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.IBinder
 import android.provider.Settings
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.MotionEvent
 import android.widget.Button
+import java.text.NumberFormat
 
 class ReadingCounterOverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var button: Button? = null
     private var params: WindowManager.LayoutParams? = null
+    private val numberFormat = NumberFormat.getIntegerInstance()
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            ReadingCounterService.COUNT_KEY -> updateCount()
+            FloatingButtonColor.KEY -> updateColor()
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!Settings.canDrawOverlays(this)) { stopSelf(); return START_NOT_STICKY }
         if (button != null) return START_NOT_STICKY
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        button = Button(this).apply {
-            text = "+1"
-            contentDescription = "Aggiungi una pagina"
+        val floatingButton = Button(this).apply {
             setTextColor(Color.WHITE)
             textSize = 18f
-            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xCC6750A4.toInt()); setStroke(2, 0x99FFFFFF.toInt()) }
-            alpha = 0.78f
+            setSingleLine(true)
+            ellipsize = TextUtils.TruncateAt.END
             elevation = 8f
             val touch = FloatArray(4)
             setOnTouchListener { view, event ->
@@ -40,10 +48,12 @@ class ReadingCounterOverlayService : Service() {
             }
             setOnClickListener {
                 startService(Intent(this@ReadingCounterOverlayService, ReadingCounterService::class.java).setAction(ReadingCounterService.ACTION_INCREMENT))
-                text = "${ReadingCounterService.count(this@ReadingCounterOverlayService)}  +1"
-                postDelayed({ if (this@ReadingCounterOverlayService.button === this) text = "+1" }, 900)
             }
         }
+        button = floatingButton
+        ReadingCounterService.preferences(this).registerOnSharedPreferenceChangeListener(preferenceListener)
+        updateCount()
+        updateColor()
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -51,11 +61,28 @@ class ReadingCounterOverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = 12 }
-        windowManager?.addView(button, params)
+        windowManager?.addView(floatingButton, params)
         return START_NOT_STICKY
     }
 
+    private fun updateCount() {
+        val count = numberFormat.format(ReadingCounterService.count(this))
+        button?.apply {
+            text = count
+            contentDescription = getString(R.string.floating_counter_description, count)
+        }
+    }
+
+    private fun updateColor() {
+        button?.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(FloatingButtonColor.selected(this@ReadingCounterOverlayService).argb)
+            setStroke(2, 0x99FFFFFF.toInt())
+        }
+    }
+
     override fun onDestroy() {
+        ReadingCounterService.preferences(this).unregisterOnSharedPreferenceChangeListener(preferenceListener)
         button?.let { windowManager?.removeView(it) }
         button = null
         params = null

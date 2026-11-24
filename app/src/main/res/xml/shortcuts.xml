@@ -1,0 +1,11 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="start_counter_mode"
+        android:icon="@drawable/ic_reading_counter"
+        android:shortcutShortLabel="@string/start_counter_mode">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.ggandrocchio.readingcounter"
+            android:targetClass="com.ggandrocchio.readingcounter.CounterModeShortcutActivity" />
+    </shortcut>
+</shortcuts>

@@ -1,0 +1,4 @@
+<resources>
+    <string name="start_counter_mode">Attiva Counter Mode</string>
+    <string name="floating_counter_description">Pagine lette: %1$s. Tocca per aggiungere una pagina.</string>
+</resources>
